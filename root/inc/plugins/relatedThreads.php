@@ -24,6 +24,9 @@
  */
 if (!defined("IN_MYBB")) exit;
 
+// PLUGINLIBRARY
+defined('PLUGINLIBRARY') or define('PLUGINLIBRARY', MYBB_ROOT.'inc/plugins/pluginlibrary.php');
+
 /**
  * Create plugin object
  * 
@@ -53,8 +56,14 @@ function relatedThreads_info()
         'website' => 'http://lukasztkacz.com',
         'author' => 'Lukasz "LukasAMD" Tkacz',
         'authorsite' => 'http://lukasztkacz.com',
-        'version' => '1.0.1',
-        'compatibility' => '18*'
+        'version' => '1.8.22',
+		'versioncode' => 1822,
+        'compatibility' => '18*',
+        'codename' => 'ougc_relatedthreads',
+		'pl'			=> array(
+			'version'	=> 13,
+			'url'		=> 'https://community.mybb.com/mods.php?action=view&pid=573'
+		)
     );
 }
 
@@ -72,7 +81,13 @@ function relatedThreads_is_installed()
 {
     global $mybb;
 
-    return (isset($mybb->settings['relatedThreadsLength']));
+	$plugins = $mybb->cache->read('ougc_plugins');
+	if(!$plugins)
+	{
+		$plugins = array();
+	}
+
+    return (isset($plugins['relatedThreads']));
 }
 
 function relatedThreads_uninstall()
@@ -95,7 +110,7 @@ function relatedThreads_is_activated()
 {
     global $mybb;
 
-    return (isset($mybb->settings['relatedThreadsLength']));
+    return (isset($mybb->settings['relatedThreads_Length']));
 }
 
 function relatedThreads_deactivate()
@@ -123,6 +138,7 @@ class relatedThreads
 
         $plugins->hooks["xmlhttp"][10]["relatedThreads_displayThreads"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->displayThreads();')); 
         $plugins->hooks["newthread_start"][10]["relatedThreads_injectNewthread"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthread();')); 
+        $plugins->hooks["newthread_end"][10]["relatedThreads_injectNewthreadEnd"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthreadEnd();')); 
         $plugins->hooks["pre_output_page"][10]["relatedThreads_pluginThanks"] = array("function" => create_function('&$arg', 'global $plugins; $plugins->objects[\'relatedThreads\']->pluginThanks($arg);'));
     }
 
@@ -149,13 +165,38 @@ class relatedThreads
     }
 
     /**
+     * Inject hidden fields for javascript code in newthread template.
+     * 
+     * @return bool False.
+     */
+    public function injectNewthreadEnd()
+    {
+        global $forum, $lang, $mybb, $relatedThreadsRow, $templates;
+
+        $lang->load('relatedThreads');
+        if ($this->getConfig('Timer') == 0)
+        {
+            $this->setConfig('Timer', '1000');
+        }
+        if ($this->getConfig('Length') == 0)
+        {
+            $this->setConfig('Length', '4');
+        }
+        
+        eval("\$relatedThreadsRow = \"" . $templates->get("relatedThreads_row") . "\";");
+    }
+
+    /**
      * Search for related threads and display output list.
      * 
      * @return bool False if there are not related threads or string if there are.
      */
     public function displayThreads()
     {
-        global $mybb, $db, $lang, $relatedThreads, $templates;
+        global $mybb, $db, $lang, $relatedThreads, $templates, $parser;
+
+		require_once MYBB_ROOT.'inc/class_parser.php';
+		($parser instanceof postParser) or $parser = new postParser ;
 
         if ($mybb->input['action'] != 'relatedThreads')
         {
@@ -219,7 +260,7 @@ class relatedThreads
                 WHERE {$this->where} 
                 LIMIT " . $this->getConfig('Limit');
         $result = $db->query($sql);
-        
+
         if (!$db->num_rows($result))
         {
             return;
@@ -232,7 +273,7 @@ class relatedThreads
             $tids[] = $row['fid'];
 
             $threadsList[$row['tid']] = array(
-                'subject' => stripslashes($row['subject']),
+                'subject' => htmlspecialchars_uni($parser->parse_badwords($row['subject'])),
                 'link' => ($this->getConfig('LinkLastPost')) ? get_thread_link($row['tid'], 0, 'lastpost') : get_thread_link($row['tid']),
                 'fid' => $row['fid'],
 				'threadprefix' => '',
@@ -258,7 +299,7 @@ class relatedThreads
             while ($row = $db->fetch_array($result))
             {
                 $forumsList[$row['fid']] = array(
-                    'name' => stripslashes($row['name']),
+                    'name' => preg_replace("#&(?!\#[0-9]+;)#si", "&amp;", $row['name']),
                     'link' => get_forum_link($row['fid']),
                 );
             }
@@ -413,6 +454,13 @@ class relatedThreads
     {
         if ($this->getConfig('Exceptions') == '')
         {
+            return;
+        }
+
+        if ($this->getConfig('Exceptions') == '')
+        {
+            $this->where .= " AND fid=''";
+
             return;
         }
 
@@ -608,7 +656,7 @@ class relatedThreads
     {
         global $mybb;
 
-        return $mybb->settings["relatedThreads{$name}"];
+        return $mybb->settings["relatedThreads_{$name}"];
     }
 
     /**

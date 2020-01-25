@@ -73,7 +73,7 @@ var relatedThreads =
     {
         if (request.responseText != "")
         {
-            $('#relatedThreadsRow').css("display", "table-row");
+            $('#relatedThreadsRow').css("display", rTDisplay);
             $('#relatedThreads').html(request.responseText);         
         } 
         else 
