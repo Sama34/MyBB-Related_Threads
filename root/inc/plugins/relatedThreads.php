@@ -137,6 +137,7 @@ class relatedThreads
         global $plugins;
 
         $plugins->hooks["xmlhttp"][10]["relatedThreads_displayThreads"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->displayThreads();')); 
+        $plugins->hooks["error"][9]["relatedThreads_displayThreadsError"] = array("function" => create_function('$error','global $plugins; $plugins->objects[\'relatedThreads\']->displayThreadsError($error);')); 
         $plugins->hooks["newthread_start"][10]["relatedThreads_injectNewthread"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthread();')); 
         $plugins->hooks["newthread_end"][10]["relatedThreads_injectNewthreadEnd"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthreadEnd();')); 
         $plugins->hooks["pre_output_page"][10]["relatedThreads_pluginThanks"] = array("function" => create_function('&$arg', 'global $plugins; $plugins->objects[\'relatedThreads\']->pluginThanks($arg);'));
@@ -198,7 +199,7 @@ class relatedThreads
 		require_once MYBB_ROOT.'inc/class_parser.php';
 		($parser instanceof postParser) or $parser = new postParser ;
 
-        if ($mybb->input['action'] != 'relatedThreads')
+        if ($mybb->input['action'] != 'relatedThreads' || $db->can_search != true)
         {
             return;
         }
@@ -210,7 +211,9 @@ class relatedThreads
             $this->setConfig('Length', '4');
         }
 
-        $userSubject = trim($mybb->input['subject']);
+		$mybb->settings['minsearchword'] = $this->getConfig('Length');
+
+        $userSubject = trim($mybb->get_input('subject'));
         if (!$mybb->user['uid'] || my_strlen($userSubject) < $this->getConfig('Length'))
         {
             return;
@@ -222,6 +225,8 @@ class relatedThreads
             $this->setConfig('Limit', '5');
         }
 
+		$mybb->settings['searchhardlimit'] = $this->getConfig('Limit');
+
         // Prepare sql statements
         $this->where = '';
         $this->getStandardWhere();
@@ -232,34 +237,41 @@ class relatedThreads
         $this->getUnsearchableForums();
         $this->getInactiveForums();
 
-        // Use fulltext search index...
-        if ($this->getConfig('Fulltext') && $db->supports_fulltext("threads"))
-        {
-            $this->where .= " AND MATCH(subject) AGAINST('" . $db->escape_string($userSubject) . "') ";
-        }
-        // ...or build LIKE query
-        else
-        {
-            $keywords = $this->getKeywords($userSubject);
-            $countKeywords = count($keywords);
+		require_once MYBB_ROOT.'inc/functions_search.php';
 
-            if (!$countKeywords)
-            {
-                return;
-            }
+		$search_data = [
+			"keywords" => $userSubject,
+			'author' => false,
+			'postthread' => 0,
+			'matchusername' => false,
+			'postdate' => false,
+			'forums' => false,
+			'findthreadst' => false,
+			'numreplies' => '',
+			'threadprefix' => false,
+			'visible' => 1,
+		];
 
-            $this->where .= " AND subject LIKE '%" . $db->escape_string($keywords[0]) . "%' ";
-            for ($i = 1; $i < $countKeywords; $i++)
-            {
-                $this->where .= "OR subject LIKE '%" . $db->escape_string($keywords[$i]) . "%' ";
-            }
-        }
+		$lang->load('search');
 
-        $sql = "SELECT tid, fid, subject, prefix
-                FROM " . TABLE_PREFIX . "threads
-                WHERE {$this->where} 
-                LIMIT " . $this->getConfig('Limit');
-        $result = $db->query($sql);
+
+		if($this->getConfig('Fulltext') && $mybb->settings['searchtype'] == 'fulltext' && $db->supports_fulltext_boolean('posts') && $db->is_fulltext('posts'))
+		{
+			$search_results = perform_search_mysql_ft($search_data);
+		}
+		else
+		{
+			$search_results = perform_search_mysql($search_data);
+		}
+
+		if(empty($search_results['threads']))
+		{
+			return;
+		}
+
+		$this->where .= " AND tid IN ({$search_results['threads']})";
+
+        $result = $db->simple_select('threads', 'tid, fid, subject, prefix', $this->where, ['limit' => $this->getConfig('Limit')]);
 
         if (!$db->num_rows($result))
         {
@@ -333,6 +345,19 @@ class relatedThreads
         }
         eval("\$relatedThreads['content'] = \"" . $templates->get("relatedThreads_list") . "\";");
         echo $relatedThreads['content'];
+    }
+
+    /**
+     * Hijacks the error core feature to skip the ajax error.
+     */
+    public function displayThreadsError($error)
+    {
+		global $lang;
+
+		if($error && ($error === $lang->error_minsearchlength || $error === $lang->error_nosearchresults))
+		{
+			exit;
+		}
     }
 
     /**
@@ -454,13 +479,6 @@ class relatedThreads
     {
         if ($this->getConfig('Exceptions') == '')
         {
-            return;
-        }
-
-        if ($this->getConfig('Exceptions') == '')
-        {
-            $this->where .= " AND fid=''";
-
             return;
         }
 
