@@ -79,15 +79,16 @@ function relatedThreads_install()
 
 function relatedThreads_is_installed()
 {
-    global $mybb;
+    global $cache;
 
-	$plugins = $mybb->cache->read('ougc_plugins');
+    $plugins = $cache->read('ougc_plugins');
+
 	if(!$plugins)
 	{
 		$plugins = array();
 	}
 
-    return (isset($plugins['relatedThreads']));
+    return isset($plugins['relatedThreads']);
 }
 
 function relatedThreads_uninstall()
@@ -125,7 +126,6 @@ function relatedThreads_deactivate()
  */
 class relatedThreads
 {
-
     // Where statement for sql
     private $where = '';
      
@@ -153,6 +153,7 @@ class relatedThreads
         global $forum, $lang, $mybb, $relatedThreadsJavaScript, $templates;
 
         $lang->load('relatedThreads');
+
         if ($this->getConfig('Timer') == 0)
         {
             $this->setConfig('Timer', '1000');
@@ -175,6 +176,7 @@ class relatedThreads
         global $forum, $lang, $mybb, $relatedThreadsRow, $templates;
 
         $lang->load('relatedThreads');
+
         if ($this->getConfig('Timer') == 0)
         {
             $this->setConfig('Timer', '1000');

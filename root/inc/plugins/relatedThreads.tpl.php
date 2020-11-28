@@ -35,6 +35,7 @@ class relatedThreadsActivator
     public static function activate()
     {
 		global $PL, $lang, $mybb, $db, $lang;
+
 		$PL or require_once PLUGINLIBRARY;
 
         $lang->load('relatedThreads');

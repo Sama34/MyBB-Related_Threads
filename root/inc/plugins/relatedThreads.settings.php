@@ -38,13 +38,14 @@ class relatedThreadsInstaller
     public static function uninstall()
     {
 		global $db, $PL, $cache;
+
 		$PL or require_once PLUGINLIBRARY;
 
 		// Delete settings
 		$PL->settings_delete('relatedThreads');
 
 		// Delete templates
-		$PL->templates_delete('ougcfeedback');
+		$PL->templates_delete('relatedThreads');
 
 		// Delete version from cache
 		$plugins = (array)$cache->read('ougc_plugins');
