@@ -354,9 +354,9 @@ class relatedThreads
      */
     public function displayThreadsError($error)
     {
-		global $lang;
+		global $lang, $mybb;
 
-		if($error && ($error === $lang->error_minsearchlength || $error === $lang->error_nosearchresults))
+		if($mybb->get_input('action') == 'relatedThreads' && $error && ($error === $lang->error_minsearchlength || $error === $lang->error_nosearchresults))
 		{
 			exit;
 		}
