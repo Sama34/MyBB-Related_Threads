@@ -136,11 +136,11 @@ class relatedThreads
     {
         global $plugins;
 
-        $plugins->hooks["xmlhttp"][10]["relatedThreads_displayThreads"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->displayThreads();')); 
-        $plugins->hooks["error"][9]["relatedThreads_displayThreadsError"] = array("function" => create_function('$error','global $plugins; $plugins->objects[\'relatedThreads\']->displayThreadsError($error);')); 
-        $plugins->hooks["newthread_start"][10]["relatedThreads_injectNewthread"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthread();')); 
-        $plugins->hooks["newthread_end"][10]["relatedThreads_injectNewthreadEnd"] = array("function" => create_function('','global $plugins; $plugins->objects[\'relatedThreads\']->injectNewthreadEnd();')); 
-        $plugins->hooks["pre_output_page"][10]["relatedThreads_pluginThanks"] = array("function" => create_function('&$arg', 'global $plugins; $plugins->objects[\'relatedThreads\']->pluginThanks($arg);'));
+        $plugins->hooks["xmlhttp"][10]["relatedThreads_displayThreads"] = array("function" => function () { global $plugins; $plugins->objects['relatedThreads']->displayThreads(); }); 
+        $plugins->hooks["error"][9]["relatedThreads_displayThreadsError"] = array("function" => function (&$error) { global $plugins; $plugins->objects['relatedThreads']->displayThreadsError($error); }); 
+        $plugins->hooks["newthread_start"][10]["relatedThreads_injectNewthread"] = array("function" => function () { global $plugins; $plugins->objects['relatedThreads']->injectNewthread(); }); 
+        $plugins->hooks["newthread_end"][10]["relatedThreads_injectNewthreadEnd"] = array("function" => function () { global $plugins; $plugins->objects['relatedThreads']->injectNewthreadEnd(); }); 
+        $plugins->hooks["pre_output_page"][10]["relatedThreads_pluginThanks"] = array("function" => function (&$arg) { global $plugins; $plugins->objects['relatedThreads']->pluginThanks($arg); }); 
     }
 
     /**
